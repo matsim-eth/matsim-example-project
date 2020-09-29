@@ -1,4 +1,4 @@
-package org.matsim.api;
+package org.matsim.matsim_api_examples;
 
 import org.matsim.api.core.v01.Coord;
 import org.matsim.core.utils.geometry.CoordUtils;

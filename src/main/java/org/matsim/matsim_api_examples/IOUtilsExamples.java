@@ -1,4 +1,4 @@
-package org.matsim.api;
+package org.matsim.matsim_api_examples;
 
 import org.apache.log4j.Logger;
 import org.matsim.core.utils.io.IOUtils;

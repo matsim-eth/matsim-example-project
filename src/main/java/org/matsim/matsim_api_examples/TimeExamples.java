@@ -1,4 +1,4 @@
-package org.matsim.api;
+package org.matsim.matsim_api_examples;
 
 import org.matsim.core.utils.misc.Time;
 
