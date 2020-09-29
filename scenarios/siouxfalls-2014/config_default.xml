@@ -10,22 +10,22 @@
 	<module name="plans">
 		<param name="inputPlansFile" value="Siouxfalls_population.xml.gz" />
 	</module>
-	
+
 	<module name="facilities" >
 		<param name="inputFacilitiesFile" value="Siouxfalls_facilities.xml.gz" />
 		<param name="facilitiesSource" value="fromFile"/>
 	</module>
-	
+
 	<module name="controler">
-		<param name="writeEventsInterval" value="1000" />
-		<param name="writePlansInterval" value="1000" />
+		<param name="writeEventsInterval" value="1" />
+		<param name="writePlansInterval" value="1" />
 		<param name="eventsFileFormat" value="xml" />
-		<param name="outputDirectory" value="output/siouxfalls-2014"/>
+		<param name="outputDirectory" value="scenarios/siouxfalls-2014/simulation_output"/>
 		<param name="firstIteration" value="0" />
-		<param name="lastIteration" value="3000" />
+		<param name="lastIteration" value="10" />
 		<param name="mobsim" value="qsim" />
 	</module>
- 	
+
  	<module name="qsim" >
 		<param name="startTime" value="00:00:00" />
 		<param name="endTime" value="30:00:00" />
@@ -43,7 +43,7 @@
 
 		<!-- `queue' for the standard queue model, `withHolesExperimental' (experimental!!) for the queue model with holes -->
 		<param name="trafficDynamics" value="queue" />
-		
+
 	</module>
 
 	<module name="planCalcScore">
@@ -107,7 +107,7 @@
 		</parameterset>
 		</parameterset>
 	</module>
-	
+
 	<module name="strategy">
 		<param name="maxAgentPlanMemorySize" value="6" /> <!-- 0 means unlimited -->
 
@@ -134,7 +134,7 @@
 			<param name="weight" value="0.01"/>
 		</parameterset>
 	</module>
-	
+
 <!-- ====================================================================== -->
 
 	<module name="TimeAllocationMutator" >
@@ -158,7 +158,7 @@
 		<param name="searchRadius" value="1500.0" />
 	</module>
 
-	
+
 	<module name="subtourModeChoice" >
 
 		<!-- Defines the chain-based modes, seperated by commas -->
@@ -170,13 +170,13 @@
 		<!-- Defines all the modes available, including chain-based modes, seperated by commas -->
 		<param name="modes" value="car,pt,walk" />
 	</module>
-   
+
   	<module name="transit">
   	  	<param name="useTransit" value="true" />
   	  		<param name="transitScheduleFile" value="Siouxfalls_transitSchedule.xml" />
  		<param name="vehiclesFile" value="Siouxfalls_vehicles.xml" />
   	 	<param name="transitModes" value="pt,bus" />
   	</module>
-	
-	
+
+
 </config>
