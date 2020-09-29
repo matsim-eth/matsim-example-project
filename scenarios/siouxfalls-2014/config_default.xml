@@ -22,7 +22,7 @@
 		<param name="eventsFileFormat" value="xml" />
 		<param name="outputDirectory" value="scenarios/siouxfalls-2014/simulation_output"/>
 		<param name="firstIteration" value="0" />
-		<param name="lastIteration" value="10" />
+		<param name="lastIteration" value="5" />
 		<param name="mobsim" value="qsim" />
 	</module>
 
