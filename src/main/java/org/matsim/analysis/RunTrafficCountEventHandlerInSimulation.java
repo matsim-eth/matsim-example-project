@@ -9,11 +9,14 @@ import org.matsim.core.scenario.ScenarioUtils;
 
 public class RunTrafficCountEventHandlerInSimulation {
 
+    // this is an example run script to process events during the MATSim simulation
     public static void main(String[] args) {
 
         // Load config
         Config config = ConfigUtils.loadConfig("scenarios/siouxfalls-2014/config_default.xml");
-        config.controler().setOutputDirectory("scenarios/siouxfalls-2014/simulation_output_2");
+
+        // Set a different output path
+        config.controler().setOutputDirectory("output/siouxfalls-2014/simulation_output");
 
         // Load scenario
         Scenario scenario = ScenarioUtils.loadScenario(config);
@@ -22,7 +25,7 @@ public class RunTrafficCountEventHandlerInSimulation {
         Controler controler = new Controler(scenario);
 
         // create event handler
-        Network network = scenario.getNetwork();
+        Network network = scenario.getNetwork(); // we get the network from the scenario
         TrafficCountHandler trafficCountHandler = new TrafficCountHandler(network);
 
         // create controler listener
