@@ -3,12 +3,10 @@ package org.matsim.analysis;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.events.LinkEnterEvent;
 import org.matsim.api.core.v01.events.LinkLeaveEvent;
-import org.matsim.api.core.v01.events.VehicleEntersTrafficEvent;
-import org.matsim.api.core.v01.events.VehicleLeavesTrafficEvent;
+import org.matsim.api.core.v01.events.PersonArrivalEvent;
 import org.matsim.api.core.v01.events.handler.LinkEnterEventHandler;
 import org.matsim.api.core.v01.events.handler.LinkLeaveEventHandler;
-import org.matsim.api.core.v01.events.handler.VehicleEntersTrafficEventHandler;
-import org.matsim.api.core.v01.events.handler.VehicleLeavesTrafficEventHandler;
+import org.matsim.api.core.v01.events.handler.PersonArrivalEventHandler;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.api.core.v01.population.Person;
@@ -18,8 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-public class TravelSpeedHandler implements LinkEnterEventHandler, LinkLeaveEventHandler,
-        VehicleEntersTrafficEventHandler, VehicleLeavesTrafficEventHandler {
+public class TravelSpeedHandler implements LinkEnterEventHandler, LinkLeaveEventHandler, PersonArrivalEventHandler {
 
     // handler to keep track of the driver of each vehicle
     private Vehicle2DriverEventHandler vehicle2DriverEventHandler;
@@ -30,115 +27,151 @@ public class TravelSpeedHandler implements LinkEnterEventHandler, LinkLeaveEvent
     // map to keep track of the enter time on a link for each agent
     private Map<Id<Person>, Double> enterTimes = new HashMap<>();
 
-    // map to keep track of the number of agents on each link
-    private Map<Id<Link>, Integer> linkCounts = new HashMap<>();
+    // map to keep track of the number of agents on each link per hour
+    private Map<Id<Link>, int[]> linkCountsPerHour = new HashMap<>();
 
-    // map to keep track of the average speed on each link
-    private Map<Id<Link>, Double> linkSpeeds = new HashMap<>();
+    // map to keep track of the cumulative speed on each link per hour
+    private Map<Id<Link>, double[]> cumulativeLinkSpeedsPerHour = new HashMap<>();
 
-
+    // we pass the network to the class constructor, because we need it to initialize our maps
+    // also, we need the Vehicle2DriverEventHandler to track the driver of each vehicle
     public TravelSpeedHandler(Vehicle2DriverEventHandler vehicle2DriverEventHandler, Network network) {
         this.vehicle2DriverEventHandler = vehicle2DriverEventHandler;
         this.network = network;
 
+        // loop through all links in the network
         for (Id<Link> linkId : network.getLinks().keySet()) {
-            linkCounts.put(linkId, 0);
-            linkSpeeds.put(linkId, 0.0);
-        }
 
+            // initialize each array for each link
+            linkCountsPerHour.put(linkId, new int[30]);
+            cumulativeLinkSpeedsPerHour.put(linkId, new double[30]);
+        }
     }
 
     @Override
     public void reset(int iteration) {
+
+        // clear the contents of the enterTimes map
         enterTimes.clear();
+
+        // loop through all links in the network
         for (Id<Link> linkId : network.getLinks().keySet()) {
-            linkCounts.put(linkId, 0);
-            linkSpeeds.put(linkId, 0.0);
+
+            // reset the initial values
+            linkCountsPerHour.put(linkId, new int[30]);
+            cumulativeLinkSpeedsPerHour.put(linkId, new double[30]);
         }
     }
 
+    // what happens when an agent enters a link
     @Override
     public void handleEvent(LinkEnterEvent event) {
+
+        // get the person and link id
         Id<Person> personId = vehicle2DriverEventHandler.getDriverOfVehicle(event.getVehicleId());
-        Id<Link> linkId = event.getLinkId();
+
+        // get time the event
+        double time = event.getTime();
 
         // record the time the agent entered the link
-        enterTimes.put(personId, event.getTime());
+        enterTimes.put(personId, time);
 
-        // increase the count on the link by 1
-        int previousCount = linkCounts.get(linkId);
-        linkCounts.put(linkId, previousCount + 1);
     }
 
+    // what happens when the agent exits a link
     @Override
     public void handleEvent(LinkLeaveEvent event) {
         Id<Person> personId = vehicle2DriverEventHandler.getDriverOfVehicle(event.getVehicleId());
         Id<Link> linkId = event.getLinkId();
 
-        // retrieve the enter time previously stored (it must be on the same link)
-        double enterTime = enterTimes.remove(personId);
+        // The first time an agent enters the network, a VehicleEntersTrafficEvent (not LinkEnterEvent) is triggered.
+        // Since we only listen to LinkEnterEvents and LinkExitEvents,
+        // the agent will not be in the enterTimes map after the VehicleEntersTrafficEvent.
+        // Therefore, we first need to check whether the agent is in the map before proceeding any further.
 
-        // get the exit time
-        double exitTime = event.getTime();
+        if (enterTimes.containsKey(personId)) {
 
-        // compute the travel speed
-        double travelTime = exitTime - enterTime;
-        double travelSpeed = network.getLinks().get(linkId).getLength() / travelTime;
+            // retrieve the enter time previously stored (it must be on the same link)
+            // this remove method removes the entry from the map and returns it
+            double enterTime = enterTimes.remove(personId);
 
-        // add travel speed
-        double previousTotal = linkSpeeds.get(linkId);
-        linkSpeeds.put(linkId, previousTotal + travelSpeed);
+            // get the time bin of the enter time
+            int timeBin = getTimeBin(enterTime);
+
+            // increase the count at the enter time bin by 1
+            int previousCountPerHour = linkCountsPerHour.get(linkId)[timeBin];
+            linkCountsPerHour.get(linkId)[timeBin] = previousCountPerHour + 1;
+
+            // get the exit time from the event
+            double exitTime = event.getTime();
+
+            // compute the travel speed
+            double travelTime = exitTime - enterTime;
+            double travelSpeed = network.getLinks().get(linkId).getLength() / travelTime;
+
+            // add to cumulative travel speed at the enter time bin
+            double previousCumulativeSpeedPerHour = cumulativeLinkSpeedsPerHour.get(linkId)[timeBin];
+            cumulativeLinkSpeedsPerHour.get(linkId)[timeBin] = previousCumulativeSpeedPerHour + travelSpeed;
+        }
+
     }
 
+    // when the agent arrives at there destination, we want to remove them from the enterTimes map
     @Override
-    public void handleEvent(VehicleEntersTrafficEvent event) {
+    public void handleEvent(PersonArrivalEvent event) {
+        // get the person id
         Id<Person> personId = event.getPersonId();
-        Id<Link> linkId = event.getLinkId();
 
-        // record the time the agent entered the link
-        enterTimes.put(personId, event.getTime());
-
-        // increase the count on the link by 1
-        int previousCount = linkCounts.get(linkId);
-        linkCounts.put(linkId, previousCount + 1);
+        // remove agent from map
+        enterTimes.remove(personId);
     }
 
-    @Override
-    public void handleEvent(VehicleLeavesTrafficEvent event) {
-        Id<Person> personId = event.getPersonId();
-        Id<Link> linkId = event.getLinkId();
+    // we compute the average link speeds per hour here
+    public Map<Id<Link>, double[]> getLinkSpeedsPerHour() {
 
-        // retrieve the enter time previously stored (it must be on the same link)
-        double enterTime = enterTimes.remove(personId);
+        // create a new map to store the average link speeds (so we do not override our other maps)
+        Map<Id<Link>, double[]> linkSpeedsPerHour = new HashMap<>();
 
-        // get the exit time
-        double exitTime = event.getTime();
+        // loop through all links in the network
+        for ( Link link : network.getLinks().values() ) {
 
-        // compute the travel speed
-        double travelTime = exitTime - enterTime;
-        double travelSpeed = network.getLinks().get(linkId).getLength() / travelTime;
+            // get link id
+            Id<Link> linkId = link.getId();
 
-        // add travel speed
-        double previousTotal = linkSpeeds.get(linkId);
-        linkSpeeds.put(linkId, previousTotal + travelSpeed);
-    }
+            // get the corresponding link traffic counts
+            int[] counts = linkCountsPerHour.get(linkId);
 
-    public Map<Id<Link>, Double> getLinkSpeeds() {
-        for ( Id<Link> linkId : linkSpeeds.keySet() ) {
+            // put an empty array in the linkSpeedsPerHour map if not already there
+            linkSpeedsPerHour.putIfAbsent(linkId, new double[counts.length]);
 
-            // get the correspond link traffic count
-            double count = linkCounts.get(linkId);
+            // loop through the time bins
+            for (int timeBin = 0; timeBin < counts.length; timeBin++) {
 
-            // if no traffic count, set link speed to freespeed
-            // otherwise, compute average speed
-            if (count == 0) {
-                linkSpeeds.put(linkId, network.getLinks().get(linkId).getFreespeed());
-            } else {
-                double totalSpeed = linkSpeeds.get(linkId);
-                linkSpeeds.put(linkId, totalSpeed / count);
+                // get the count for that time bin
+                int count = counts[timeBin];
+
+                // check if we have any counts
+                if (count == 0) {
+
+                    // if no traffic count, set average link speed to freespeed
+                    linkSpeedsPerHour.get(linkId)[timeBin] = link.getFreespeed();
+
+                } else {
+
+                    // otherwise, compute average speed
+                    double averageSpeed = cumulativeLinkSpeedsPerHour.get(linkId)[timeBin] / count;
+                    linkSpeedsPerHour.get(linkId)[timeBin] = averageSpeed;
+                }
+
             }
         }
 
-        return linkSpeeds;
+        // return the average link speeds
+        return linkSpeedsPerHour;
+    }
+
+    // method for computing the time bin given the event time in seconds
+    private int getTimeBin(double time) {
+        return (int) Math.min(Math.floor(time / 3600), 29);
     }
 }

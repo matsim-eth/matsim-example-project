@@ -9,16 +9,15 @@ import org.matsim.core.events.MatsimEventsReader;
 import org.matsim.core.events.algorithms.Vehicle2DriverEventHandler;
 import org.matsim.core.network.NetworkUtils;
 import org.matsim.core.network.io.MatsimNetworkReader;
+import org.matsim.core.utils.io.IOUtils;
 
 import java.io.BufferedWriter;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.util.Map;
 
 public class RunTravelSpeedEventHandler {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
 
         // load network
         Network network = NetworkUtils.createNetwork();
@@ -38,37 +37,59 @@ public class RunTravelSpeedEventHandler {
         eventsManager.addHandler(travelSpeedHandler);
 
         // read events file
-        eventsReader.readFile("scenarios/siouxfalls-2014/simulation_output/ITERS/it.10/10.events.xml.gz");
+        eventsReader.readFile("scenarios/siouxfalls-2014/simulation_output/output_events.xml.gz");
 
-        // get the travel speeds object from handler
-        Map<Id<Link>, Double> travelSpeeds = travelSpeedHandler.getLinkSpeeds();
+        // write output
+        // get the hourly speeds counts object from handler
+        Map<Id<Link>, double[]> linkSpeedsPerHour = travelSpeedHandler.getLinkSpeedsPerHour();
 
-        // write travel speeds to file
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("output/travel_speeds.csv")));
+        // write hourly speeds to different csv file
+        BufferedWriter writer = IOUtils.getBufferedWriter("output/hourly_speeds.csv");
 
-        // write header
-        String header = String.join(";", new String[] { //
-                "link_id", //
-                "travel_speed", //
-        });
-        writer.write(header + "\n");
-        writer.flush();
-
-        // write all the data
-        for (Id<Link> linkId : travelSpeeds.keySet()) {
-            double speed = travelSpeeds.get(linkId);
-
-            String entry = String.join(";", new String[] { //
-                    linkId.toString(), //
-                    String.valueOf(speed), //
+        // we need to wrap the writing in a try/catch structure
+        try {
+            // write header
+            String header = String.join(";", new String[] { //
+                    "link_id", //
+                    "time_bin", //
+                    "speed", //
             });
-
-            writer.write(entry + "\n");
+            writer.write(header + "\n");
             writer.flush();
-        }
 
-        // close file
-        writer.flush();
-        writer.close();
+            // write all the data
+
+            // first loop through the links
+            for (Id<Link> linkId : linkSpeedsPerHour.keySet()) {
+
+                // get the speeds per hour for each link
+                double[] speedsPerHour = linkSpeedsPerHour.get(linkId);
+
+                // loop through the time bins
+                for (int timeBin = 0; timeBin < speedsPerHour.length; timeBin++) {
+
+                    // for the time bin, get the speed
+                    double speed = speedsPerHour[timeBin];
+
+                    // create the string to write to file
+                    String line = String.join(";", new String[] { //
+                            linkId.toString(), //
+                            String.valueOf(timeBin), //
+                            String.valueOf(speed), //
+                    });
+
+                    // write line to file
+                    writer.write(line + "\n");
+                    writer.flush();
+                }
+            }
+
+            // close file
+            writer.flush();
+            writer.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
