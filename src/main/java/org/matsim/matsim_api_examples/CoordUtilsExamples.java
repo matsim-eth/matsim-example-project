@@ -7,17 +7,26 @@ public class CoordUtilsExamples {
 
     public static void main(String[] args) {
 
+        // CoordUtils provides many methods for manipulating coordinates
+
         // Create some coordinates
-        Coord coord1 = new Coord(0.0, 0.0);
-        Coord coord2 = new Coord(10.0, 10.0);
+        Coord coord1 = CoordUtils.createCoord(0.0, 0.0);
+        Coord coord2 = CoordUtils.createCoord(10.0, 10.0);
+
+        System.out.println("coord1: " + coord1.toString());
+        System.out.println("coord2: " + coord2.toString());
 
         // Add them
-        Coord coord3 = CoordUtils.plus(coord1, coord2);
+        Coord coordSum = CoordUtils.plus(coord1, coord2);
+        System.out.println("result of adding coordinates: " + coordSum.toString());
 
         // Subtract them
-        Coord coord4 = CoordUtils.minus(coord1, coord2);
+        Coord coordDifference = CoordUtils.minus(coord1, coord2);
+        System.out.println("result of subtracting coordinates: " + coordDifference.toString());
 
         // Get distance between coordinates
         double distance = CoordUtils.calcEuclideanDistance(coord1, coord2);
+        System.out.println("distance between coordinates: " + distance);
+
     }
 }
