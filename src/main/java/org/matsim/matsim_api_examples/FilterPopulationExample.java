@@ -26,7 +26,6 @@ public class FilterPopulationExample {
         Population filteredPopulation = PopulationUtils.createPopulation(config);
 
         for (Person person : originalPopulation.getPersons().values()) {
-            System.out.println(person.getAttributes().getAttribute("sex").toString());
             if (person.getAttributes().getAttribute("sex").toString().equals("f")) {
                 filteredPopulation.addPerson(person);
             }
