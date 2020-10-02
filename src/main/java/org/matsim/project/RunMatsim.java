@@ -18,13 +18,22 @@
  * *********************************************************************** */
 package org.matsim.project;
 
+import org.eqasim.core.analysis.DistanceUnit;
+import org.eqasim.core.components.config.EqasimConfigGroup;
+import org.eqasim.core.simulation.EqasimConfigurator;
+import org.eqasim.core.simulation.analysis.EqasimAnalysisModule;
+import org.eqasim.core.simulation.mode_choice.EqasimModeChoiceModule;
+import org.eqasim.core.simulation.mode_choice.parameters.ModeParameters;
 import org.matsim.api.core.v01.Scenario;
-import org.matsim.contrib.otfvis.OTFVisLiveModule;
+import org.matsim.core.config.CommandLine;
+import org.matsim.core.config.CommandLine.ConfigurationException;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
+import org.matsim.core.controler.AbstractModule;
 import org.matsim.core.controler.Controler;
-import org.matsim.core.controler.OutputDirectoryHierarchy;
 import org.matsim.core.scenario.ScenarioUtils;
+
+
 
 /**
  * @author nagel
@@ -32,35 +41,54 @@ import org.matsim.core.scenario.ScenarioUtils;
  */
 public class RunMatsim{
 
-	public static void main(String[] args) {
+	static public void main(String[] args) throws ConfigurationException {
+		CommandLine cmd = new CommandLine.Builder(args) //
+				.requireOptions("config-path") //
+				.allowPrefixes("mode-parameter", "cost-parameter") //
+				.build();
 
-		Config config;
-		if ( args==null || args.length==0 || args[0]==null ){
-			config = ConfigUtils.loadConfig( "scenarios/siouxfalls-2014/config_default.xml" );
-		} else {
-			config = ConfigUtils.loadConfig( args );
-		}
-		config.controler().setOverwriteFileSetting( OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists );
+		Config config = ConfigUtils.loadConfig(cmd.getOptionStrict("config-path"),
+				EqasimConfigurator.getConfigGroups());
+		
+		
+		EqasimConfigGroup.get(config).setTripAnalysisInterval(5);
+		EqasimConfigGroup.get(config).setDistanceUnit(DistanceUnit.foot);
+		cmd.applyConfiguration(config);
 
-		// possibly modify config here
+		Scenario scenario = ScenarioUtils.createScenario(config);
 		
-		// ---
 		
-		Scenario scenario = ScenarioUtils.loadScenario(config) ;
+		EqasimConfigurator.configureScenario(scenario);
 		
-		// possibly modify scenario here
+		ScenarioUtils.loadScenario(scenario);
 		
-		// ---
-		
-		Controler controler = new Controler( scenario ) ;
-		
-		// possibly modify controler here
+		EqasimConfigurator.adjustScenario(scenario);
 
-		//controler.addOverridingModule( new OTFVisLiveModule() ) ;
+		EqasimConfigGroup eqasimConfig = (EqasimConfigGroup) config.getModules().get(EqasimConfigGroup.GROUP_NAME);
 		
-		// ---
+		  eqasimConfig.setEstimator("walk", "WalkUtilityEstimator");
+		  eqasimConfig.setEstimator("bike", "BikeUtilityEstimator");
+		  eqasimConfig.setEstimator("pt", "PtUtilityEstimator");
+		  eqasimConfig.setEstimator("car", "CarEstimatorCtu2020");
+		 
+
+		Controler controller = new Controler(scenario);
+		EqasimConfigurator.configureController(controller);
 		
-		controler.run();
+        controller.addOverridingModule(new EqasimModeChoiceModule());
+        controller.addOverridingModule(new Ctu2020ModeChoiceModule());
+		controller.addOverridingModule(new EqasimAnalysisModule());
+		// controller.addOverridingModule(new CalibrationModule());
+		
+		controller.addOverridingModule(new AbstractModule() {
+            @Override
+            public void install() {
+            	bind(ModeParameters.class);
+            	}
+         });
+		
+		
+		controller.run();
 	}
 	
 }
