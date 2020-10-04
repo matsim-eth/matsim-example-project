@@ -1,11 +1,9 @@
 /**
  * 
  */
-package org.matsim.project;
+package org.matsim.ctu2020.parameters;
 
 import org.eqasim.core.simulation.mode_choice.parameters.ModeParameters;
-
-import com.google.inject.Inject;
 
 /**
  * @author stefanopenazzi

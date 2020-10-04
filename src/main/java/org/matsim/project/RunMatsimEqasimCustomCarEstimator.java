@@ -32,6 +32,7 @@ import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.controler.AbstractModule;
 import org.matsim.core.controler.Controler;
 import org.matsim.core.scenario.ScenarioUtils;
+import org.matsim.ctu2020.Ctu2020ModeChoiceModule;
 
 
 
@@ -39,14 +40,23 @@ import org.matsim.core.scenario.ScenarioUtils;
  * @author nagel
  *
  */
-public class RunMatsim{
+public class RunMatsimEqasimCustomCarEstimator{
 
 	static public void main(String[] args) throws ConfigurationException {
+		
+		// first thing first check in the pom.xml file if eqasim is imported as a dependency
+		// if not follow this link 
+		//https://github.com/eqasim-org/eqasim-java
+		
+		// necessary command line args can be set up in eclipse defining a New Configuration 
+		//e.g. --config-path home/.../config.xml
 		CommandLine cmd = new CommandLine.Builder(args) //
 				.requireOptions("config-path") //
 				.allowPrefixes("mode-parameter", "cost-parameter") //
 				.build();
 
+		//load the config file using the path specify as an argument in the command line +
+		//the eqasim configurator. 
 		Config config = ConfigUtils.loadConfig(cmd.getOptionStrict("config-path"),
 				EqasimConfigurator.getConfigGroups());
 		
@@ -55,6 +65,7 @@ public class RunMatsim{
 		EqasimConfigGroup.get(config).setDistanceUnit(DistanceUnit.foot);
 		cmd.applyConfiguration(config);
 
+		// create the scenario
 		Scenario scenario = ScenarioUtils.createScenario(config);
 		
 		
@@ -66,27 +77,25 @@ public class RunMatsim{
 
 		EqasimConfigGroup eqasimConfig = (EqasimConfigGroup) config.getModules().get(EqasimConfigGroup.GROUP_NAME);
 		
-		  eqasimConfig.setEstimator("walk", "WalkUtilityEstimator");
-		  eqasimConfig.setEstimator("bike", "BikeUtilityEstimator");
-		  eqasimConfig.setEstimator("pt", "PtUtilityEstimator");
-		  eqasimConfig.setEstimator("car", "CarEstimatorCtu2020");
+		// All the estimators of the utility function components are defined as the 
+		// default that can be found into
+		// org.eqasim.core.simulation.mode_choice.utilities.estimators
+		// but the CarEstimatorCtu2020 that has been replaced by a custom version
+		eqasimConfig.setEstimator("walk", "WalkUtilityEstimator");
+		eqasimConfig.setEstimator("bike", "BikeUtilityEstimator");
+		eqasimConfig.setEstimator("pt", "PtUtilityEstimator");
+		eqasimConfig.setEstimator("car", "CarEstimatorCtu2020"); // custom estimator
 		 
-
+        // create the controler
 		Controler controller = new Controler(scenario);
 		EqasimConfigurator.configureController(controller);
 		
+		
         controller.addOverridingModule(new EqasimModeChoiceModule());
+        // this module replace the default bind of eqasim in order to use the custom estimator CarEstimatorCtu2020
         controller.addOverridingModule(new Ctu2020ModeChoiceModule());
+        
 		controller.addOverridingModule(new EqasimAnalysisModule());
-		// controller.addOverridingModule(new CalibrationModule());
-		
-		controller.addOverridingModule(new AbstractModule() {
-            @Override
-            public void install() {
-            	bind(ModeParameters.class);
-            	}
-         });
-		
 		
 		controller.run();
 	}
